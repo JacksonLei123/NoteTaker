@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.app.notetaker"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation ("androidx.compose.material:material-icons-extended")
+    implementation(libs.play.services.mlkit.text.recognition.common)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -95,9 +96,9 @@ dependencies {
     val nav_version = "2.8.6"
     implementation("androidx.navigation:navigation-compose:$nav_version")
 
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 
     implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("io.coil-kt:coil-compose:2.5.0")
 }

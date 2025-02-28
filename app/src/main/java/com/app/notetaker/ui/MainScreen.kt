@@ -1,4 +1,4 @@
-package com.app.notetaker.navigation
+package com.app.notetaker.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -19,6 +19,7 @@ import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -52,7 +54,7 @@ fun MainScreen(
     noteViewModel: NoteViewModel
 ) {
     @Composable
-    fun GreetingPreview() {
+    fun NotesPage() {
         var selectedNotes = remember { mutableSetOf<Int>() }
         var selected = remember { mutableStateOf(false)}
         var size = remember { mutableIntStateOf(0) }
@@ -66,7 +68,10 @@ fun MainScreen(
             selected.value = true
             selectedNotes.add(uid)
             size.intValue = selectedNotes.size
-
+        }
+        fun unSelectNote(uid: Int) {
+            selectedNotes.remove(uid)
+            size.intValue = selectedNotes.size
         }
 
         fun deleteNotes() {
@@ -77,8 +82,7 @@ fun MainScreen(
 
         @OptIn(ExperimentalMaterial3Api::class)
         @Composable
-        fun ScaffoldExample() {
-
+        fun NoteScaffold() {
             Scaffold(
                 topBar = {
                     TopAppBar(
@@ -98,7 +102,9 @@ fun MainScreen(
                 floatingActionButton = {
                     if (!selected.value) {
                         Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                            FloatingActionButton(onClick = { addNote() }, modifier = Modifier.offset(y = (-30).dp)) {
+                            FloatingActionButton(onClick = {
+                                addNote()
+                            }, modifier = Modifier.offset(y = (-30).dp)) {
                                 Icon(Icons.Filled.Add, "Floating action button.")
                             }
 
@@ -112,9 +118,7 @@ fun MainScreen(
                             containerColor = MaterialTheme.colorScheme.primaryContainer ,
                             contentColor = MaterialTheme.colorScheme.primary,
                             content = {
-
                                 Row(
-
                                     modifier = Modifier
                                         .fillMaxWidth(),
 
@@ -165,23 +169,45 @@ fun MainScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     items(notesState.value) { note ->
+                        val titles = getTitleSubtitle(note.notes!!)
                         val interactionSource = remember { MutableInteractionSource() }
+                        val checked = remember { mutableStateOf(note.uid in selectedNotes) }
                         ListItem(
                             headlineContent = {
-                                Text(text = "${note.notes}")
+                                Text(text = titles[0])
                             },
                             supportingContent = {
-                                Text(text = "${note.notes}")
+                                Text(text = titles[1])
+                            },
+                            trailingContent = {
+                                if (selected.value) {
+                                    Checkbox(
+                                        checked = checked.value,
+                                        onCheckedChange = { isChecked ->
+                                            checked.value = isChecked
+                                            if (isChecked) selectNote(note.uid) else unSelectNote(note.uid)
+                                        }
+                                    )
+                                }
                             },
                             modifier = Modifier
                                 .combinedClickable(
-                                    onClick = {viewNote(note.uid)},
-                                    onLongClick = {selectNote(note.uid)},
+                                    onClick = {
+                                        if (selected.value) {
+                                            if (!checked.value) selectNote(note.uid) else unSelectNote(note.uid)
+                                        } else {
+                                            viewNote(note.uid)
+                                        }
+                                        checked.value = !checked.value
+                                    },
+                                    onLongClick = {
+                                        checked.value = true
+                                        selectNote(note.uid)
+                                    },
                                     indication = rememberRipple(),
                                     interactionSource = interactionSource
                                 )
                         )
-
                         HorizontalDivider(
                             modifier = Modifier.padding(start = 20.dp),
                             color = MaterialTheme.colorScheme.outlineVariant
@@ -192,10 +218,9 @@ fun MainScreen(
 
             }
         }
-        ScaffoldExample()
-
+        NoteScaffold()
 
     }
-    GreetingPreview()
+    NotesPage()
 
 }

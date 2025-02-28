@@ -9,9 +9,9 @@ import com.app.notetaker.database.AppDatabase
 import com.app.notetaker.database.NoteDao
 import com.app.notetaker.mvc.NoteViewModel
 import com.app.notetaker.mvc.NoteViewModelFactory
-import com.app.notetaker.navigation.Navigation
-import com.app.notetaker.openai.Client
+import com.app.notetaker.ui.Navigation
 import okhttp3.OkHttpClient
+import com.app.notetaker.openai.Client
 
 class MainActivity : ComponentActivity() {
     private var dao: NoteDao? = null

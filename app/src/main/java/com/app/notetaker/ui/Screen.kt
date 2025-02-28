@@ -1,4 +1,4 @@
-package com.app.notetaker.navigation
+package com.app.notetaker.ui
 
 sealed class Screen(val route: String) {
     object MainScreen: Screen("main_screen")

@@ -1,6 +1,5 @@
 package com.app.notetaker.openai
 
-import androidx.room.RoomDatabase
 import okhttp3.OkHttpClient
 
 abstract class Client {
