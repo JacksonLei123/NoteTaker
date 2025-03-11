@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -30,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -110,7 +109,6 @@ fun MainScreen(
 
                         }
                     }
-
                 },
                 bottomBar = {
                     if (selected.value) {
@@ -171,7 +169,7 @@ fun MainScreen(
                     items(notesState.value) { note ->
                         val titles = getTitleSubtitle(note.notes!!)
                         val interactionSource = remember { MutableInteractionSource() }
-                        val checked = remember { mutableStateOf(note.uid in selectedNotes) }
+                        val checked = remember { mutableStateOf(false) }
                         ListItem(
                             headlineContent = {
                                 Text(text = titles[0])
@@ -182,7 +180,7 @@ fun MainScreen(
                             trailingContent = {
                                 if (selected.value) {
                                     Checkbox(
-                                        checked = checked.value,
+                                        checked = note.uid in selectedNotes,
                                         onCheckedChange = { isChecked ->
                                             checked.value = isChecked
                                             if (isChecked) selectNote(note.uid) else unSelectNote(note.uid)
@@ -204,7 +202,7 @@ fun MainScreen(
                                         checked.value = true
                                         selectNote(note.uid)
                                     },
-                                    indication = rememberRipple(),
+                                    indication = ripple(),
                                     interactionSource = interactionSource
                                 )
                         )
