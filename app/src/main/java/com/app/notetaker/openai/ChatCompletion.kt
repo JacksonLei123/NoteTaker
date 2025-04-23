@@ -28,7 +28,7 @@ fun createChatCompletion(apiKey: String, requestBody: ChatRequest): ChatResponse
 }
 
 fun chatCompletion(scanText: String): Flow<ChatResponse> = flow {
-    val apiKey = "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"
+    val apiKey = API_KEY
     val request = ChatRequest(
         model = "gpt-3.5-turbo",
         messages = listOf(Message(role = "user", content = "You are an assistant note taker. Generate a summary outline of the following text: " +
