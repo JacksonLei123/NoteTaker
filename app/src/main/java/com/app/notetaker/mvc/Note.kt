@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter
 data class Note(
     @PrimaryKey(autoGenerate = true)
     var uid: Int = 0,
-    @ColumnInfo(name = "notes") val notes: String?,
+    @ColumnInfo(name = "notes") var notes: String?,
     @ColumnInfo(name = "dateUpdated") val dateUpdated: String = getDateCreated()
 ) {
 

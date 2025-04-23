@@ -35,6 +35,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +45,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.app.notetaker.mvc.Note
 import com.app.notetaker.mvc.NoteViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -57,8 +60,13 @@ fun MainScreen(
         var selectedNotes = remember { mutableSetOf<Int>() }
         var selected = remember { mutableStateOf(false)}
         var size = remember { mutableIntStateOf(0) }
+        val coroutineScope = rememberCoroutineScope()
         fun addNote() {
-            navController.navigate(Screen.DetailScreen.route.replace("{param}", ""))
+            coroutineScope.launch {
+                noteViewModel.createNote("")
+                delay(50)
+                navController.navigate(Screen.DetailScreen.route.replace("{param}", notesState.value.first().uid.toString()))
+            }
         }
         fun viewNote(uid: Int) {
             navController.navigate(Screen.DetailScreen.route.replace("{param}", uid.toString()))
@@ -180,7 +188,7 @@ fun MainScreen(
                             trailingContent = {
                                 if (selected.value) {
                                     Checkbox(
-                                        checked = note.uid in selectedNotes,
+                                        checked = checked.value,
                                         onCheckedChange = { isChecked ->
                                             checked.value = isChecked
                                             if (isChecked) selectNote(note.uid) else unSelectNote(note.uid)

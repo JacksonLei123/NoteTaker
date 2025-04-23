@@ -10,8 +10,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.CameraAlt
@@ -24,9 +26,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
@@ -38,12 +43,17 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.app.notetaker.media.DocScan
 import com.app.notetaker.mvc.Note
+import com.app.notetaker.mvc.NoteDetailViewModel
 import com.app.notetaker.mvc.NoteViewModel
+import com.app.notetaker.mvc.UiState
+import com.app.notetaker.openai.ChatResponse
 import com.app.notetaker.ui.textEditor.RichTextField
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun getCurrentActivity(): Activity? {
@@ -65,20 +75,22 @@ fun DetailScreen(
     navController: NavController,
     notesState: State<List<Note>>,
     noteViewModel: NoteViewModel,
+    noteDetailViewModel: NoteDetailViewModel,
     param: String
 ) {
-    val note = if (param.isNotEmpty()) notesState.value.find {it.uid == param.toInt()}?.notes else ""
-    val state = remember { TextFieldState(note!!)}
+    val note = notesState.value.find {it.uid == noteDetailViewModel.noteId}
+    val state = rememberTextFieldState(note!!.notes!!)
+
+    val aiSummaryLoadingState by noteDetailViewModel.aiSummaryApiState.collectAsState()
     fun navigateBack() {
-        if (param.isNotEmpty()) {
-            noteViewModel.updateNote(param.toInt(), state.text.toString())
-        } else {
-            noteViewModel.createNote(state.text.toString())
-        }
+//        if (param.isNotEmpty()) {
+//            noteViewModel.updateNote(param.toInt(), state.text.toString())
+//        } else {
+//            noteViewModel.createNote(state.text.toString())
+//        }
+        noteViewModel.updateNote(param.toInt(), state.text.toString())
         navController.navigate(Screen.MainScreen.route)
-
     }
-
     @Composable
     fun detailsComponent() {
         val context = LocalContext.current
@@ -86,76 +98,64 @@ fun DetailScreen(
         val focusManager = LocalFocusManager.current
         var isFocused by remember { mutableStateOf(false) }
         val scanClient = DocScan.getScannerClient()
-        val topAppBarHeight = 64.dp
+        val topAppBarHeight = 55.dp
+        val bottomToolBarHeight = 40.dp
+        val coroutineScope = rememberCoroutineScope()
+        var pages by remember { mutableIntStateOf(0) }
         val scannerLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartIntentSenderForResult(),
             onResult = {
                 if (it.resultCode == RESULT_OK) {
-                    val result = GmsDocumentScanningResult.fromActivityResultIntent(it.data)
-                    val uri = result?.pages?.get(0)?.imageUri
+                    val resultIntent = GmsDocumentScanningResult.fromActivityResultIntent(it.data)
+                    val uri = resultIntent?.pages?.get(0)?.imageUri
+                    val uriArray = resultIntent?.pages
                     val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                    val image = InputImage.fromFilePath(context, uri!!)
-                    val resultText = recognizer.process(image)
-                        .addOnSuccessListener { result ->
-                            // Task completed successfully
-                            var string = ""
-                            val resultText = result.text
-                            for (block in result.textBlocks) {
-                                val blockText = block.text
-                                val blockCornerPoints = block.cornerPoints
-                                val blockFrame = block.boundingBox
-                                for (line in block.lines) {
-                                    val lineText = line.text
-                                    val lineCornerPoints = line.cornerPoints
-                                    val lineFrame = line.boundingBox
-                                    for (element in line.elements) {
-                                        val elementText = element.text
-                                        string += " $elementText"
-                                        val elementCornerPoints = element.cornerPoints
-                                        val elementFrame = element.boundingBox
+                    var string = ""
+                    uriArray?.forEach { uriLink ->
+                        val image = InputImage.fromFilePath(context, uriLink.imageUri)
+                        val resultText = recognizer.process(image)
+                            .addOnSuccessListener { result ->
+                                pages += 1
+                                // Task completed successfully
+                                string += result.text
+                                string += "\n"
+                                if (pages == uriArray.size) {
+                                    noteDetailViewModel.requestAISummary(string)
+                                }
+                                val resultText = result.text
+                                for (block in result.textBlocks) {
+                                    val blockText = block.text
+                                    val blockCornerPoints = block.cornerPoints
+                                    val blockFrame = block.boundingBox
+                                    for (line in block.lines) {
+                                        val lineText = line.text
+                                        val lineCornerPoints = line.cornerPoints
+                                        val lineFrame = line.boundingBox
+                                        for (element in line.elements) {
+                                            val elementText = element.text
+                                            string += " $elementText"
+                                            val elementCornerPoints = element.cornerPoints
+                                            val elementFrame = element.boundingBox
+                                        }
                                     }
                                 }
+
                             }
-                            state.edit {
-                                append(string)
+                            .addOnFailureListener { e ->
+                                println("HELO FAILURE")
+                                // Task failed with an exception
+                                // ...
                             }
-                        }
-                        .addOnFailureListener { e ->
-                            println("HELO FAILURE")
-                            // Task failed with an exception
-                            // ...
-                        }
-//                    val filePath = result?.pdf?.uri?.path
-//                    val projectId = "stor320-291615"
-//                    val location = "us" // Format is "us" or "eu".
-//                    val processorId = "227293a4070154ae"
-//
-//                    val credentials = GoogleCredentials.fromStream(FileInputStream("/application_default_credentials.json"))
-//                    val endpoint = java.lang.String.format("%s-documentai.googleapis.com:443", location)
-//                    val settings: DocumentProcessorServiceSettings =
-//                        DocumentProcessorServiceSettings.newBuilder()
-////                            .setCredentialsProvider()
-//                            .setEndpoint(endpoint)
-//                            .build()
-//                    val client = DocumentProcessorServiceClient.create(settings)
-//                    val name =
-//                        java.lang.String.format(
-//                            "projects/%s/locations/%s/processors/%s",
-//                            projectId,
-//                            location,
-//                            processorId
-//                        )
-//                    val imageFileData = Files.readAllBytes(Paths.get(filePath))
-//                    println(imageFileData)
+                    }
                 }
             }
         )
         Scaffold(
             topBar = {
                 TopAppBar(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(topAppBarHeight),
                     navigationIcon = {
-                        IconButton(onClick = { focusManager.clearFocus(); navigateBack() }) {
+                        IconButton(modifier = Modifier.size(topAppBarHeight), onClick = { focusManager.clearFocus(); navigateBack() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back button"
@@ -166,7 +166,7 @@ fun DetailScreen(
                     actions = {
                         if (isFocused) {
                             TextButton(onClick = { focusManager.clearFocus() }) {
-                                Text("Done", color = Color.Black, fontSize = 20.sp)
+                                Text("Done", color = Color.Black, fontSize = 15.sp)
                             }
                         } else {
                             IconButton(onClick = {
@@ -191,87 +191,75 @@ fun DetailScreen(
 
                 )
             },
-//            bottomBar = {
-//                BottomAppBar(
-//                    containerColor = MaterialTheme.colorScheme.primaryContainer ,
-//                    contentColor = MaterialTheme.colorScheme.primary,
-//                    content = {
-//                        Row(
-//                            modifier = Modifier
-//                                .fillMaxWidth(),
-//
-//                            horizontalArrangement = Arrangement.SpaceEvenly,
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Button(
-//                                modifier = Modifier
-//                                    .weight(1f),
-////                                    .size(100.dp),
-//                                shape = RectangleShape,
-//                                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-//                                onClick = {
-//                                    scanClient.getStartScanIntent(mainActivity!!)
-//                                        .addOnSuccessListener {
-//                                            scannerLauncher.launch(
-//                                                IntentSenderRequest.Builder(it).build()
-//                                            )
-//                                        }
-//                                        .addOnFailureListener {
-//                                            println("FAILED")
-//                                        }
-//                                }) {
-//                                Icon(
-//                                    Icons.Outlined.CameraAlt,
-//                                    contentDescription = "Scan a document",
-//                                    tint = MaterialTheme.colorScheme.primary,
-//                                    modifier = Modifier
-////                                        .size(35.dp)
-//                                )
-//                            }
-//                        }
-//                    }
-//                )
-//            }
+            bottomBar = {
+                if (isFocused) {
+//                    RichTextToolbar(isBold = false, isItalic = false, onBoldToggle = {println("HELLO")}, modifier = Modifier.height(bottomToolBarHeight))
+                }
+            }
         ) { innerPadding -> run {
-            RichTextField(state, topInset = topAppBarHeight, modifier = Modifier
-                .padding(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = innerPadding.calculateTopPadding()
+
+            val textFieldHeight = remember(isFocused) {
+                if (isFocused) 300.dp else 1000.dp
+            }
+            when (aiSummaryLoadingState) {
+                is UiState.Loading -> Text("Generating AI summary...", modifier = Modifier
+                    .padding(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = innerPadding.calculateTopPadding()
+                    )
                 )
-                .fillMaxSize()
-                .onFocusEvent {
-                    isFocused = it.hasFocus
-//                    println("HELLO")
-//                    println(it.isFocused)
-//                    isFocused = it.isFocused
-                })
-//            BasicTextField(state,
-//                modifier = Modifier
-//                    .padding(
-//                        start = 26.dp,
-//                        end = 26.dp,
-//                        top = innerPadding.calculateTopPadding(),
-////                        bottom = 10.dp
-//                    )
-////                    .heightIn(500.dp, Dp.Infinity)
-////                    .consumeWindowInsets(innerPadding)
-//                    .fillMaxSize()
-//                    .statusBarsPadding()
-//                    .navigationBarsPadding()
-//                    .imePadding()
-//                    .onFocusEvent {
-//                        println(it.isFocused)
-//                        println(state.selection.start)
-//                        isFocused = it.isFocused
-//                    })
+                is UiState.Success -> {
+                    val summary = (aiSummaryLoadingState as UiState.Success<ChatResponse>).data.choices.firstOrNull()?.message?.content
+                    coroutineScope.launch {
+                        summary!!.forEachIndexed { index, _ -> run {
+                            state.edit {
+                                append(summary[index])
+                            }
+                            delay(10)
+
+                        }
+                        }
+                        state.edit {
+                            append("\n\n")
+                        }
+                    }
+
+                    RichTextField(state, topInset = topAppBarHeight, bottomInset = bottomToolBarHeight, modifier = Modifier
+                        .padding(
+                            start = 20.dp,
+                            end = 20.dp,
+                            top = innerPadding.calculateTopPadding()
+                        )
+                        .fillMaxSize()
+                        .onFocusEvent {
+                            isFocused = it.hasFocus
+                        })
+                    noteDetailViewModel.resetApiState()
+
+                }
+                is UiState.Idle -> {
+                    RichTextField(state, modifier = Modifier
+                        .padding(
+                            start = 20.dp,
+                            end = 20.dp,
+                            top = innerPadding.calculateTopPadding()
+                        )
+                        .fillMaxSize()
+                        .onFocusEvent {
+                            isFocused = it.hasFocus
+                        }, topInset = topAppBarHeight, bottomToolBarHeight
+                    )
+                }
+                is UiState.Error -> println("ERROR")
+
+            }
+
         }
 
         }
     }
     detailsComponent()
-
-
 
 
 
