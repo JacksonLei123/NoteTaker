@@ -64,7 +64,6 @@ class MainActivity : ComponentActivity() {
             val notesState = noteViewModel!!.notes.collectAsState(emptyList())
 //            Navigation(notesState, noteViewModel!!, noteRepository!!)
 //            RichTextToolbar(isBold = false, isItalic = false, {}, { })
-
             @Composable
             fun MixedTextEditor() {
                 var textFields = remember { mutableStateListOf<TextFieldValue>() }
